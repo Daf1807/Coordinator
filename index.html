@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooperativa Admin - Acceso DNI</title>
+    <style>
+        /* 🎨 ESTILOS CSS */
+        :root {
+            --primary: #1565c0; /* Azul corporativo */
+            --primary-dark: #0d47a1;
+            --secondary: #f5f5f5;
+            --accent: #ff9800;
+            --text: #333333;
+            --text-light: #666666;
+            --white: #ffffff;
+            --border: #e0e0e0;
+            --radius: 8px;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        
+        body { background-color: var(--secondary); color: var(--text); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* HEADER */
+        header { background: var(--white); padding: 1rem 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .logo { font-weight: 700; font-size: 1.2rem; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-buttons button { background: none; border: none; color: var(--text-light); cursor: pointer; font-weight: 600; padding: 0.5rem 1rem; font-size: 0.9rem; }
+        .nav-buttons button:hover { color: var(--primary); }
+        .nav-buttons .btn-highlight { background: var(--primary); color: white; border-radius: var(--radius); }
+        .nav-buttons .btn-highlight:hover { background: var(--primary-dark); color: white; }
+
+        /* CONTENEDOR */
+        main { flex: 1; max-width: 800px; width: 100%; margin: 0 auto; padding: 2rem 1rem; }
+
+        /* PANTALLAS */
+        .screen { display: none; animation: fadeIn 0.4s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- EXTRANET (PÚBLICA) --- */
+        .hero { text-align: center; padding: 3rem 1rem; background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 2rem; }
+        .hero h1 { font-size: 2rem; color: var(--primary-dark); margin-bottom: 1rem; }
+        .btn-cta { background: var(--accent); color: white; padding: 1rem 2rem; border: none; border-radius: 50px; font-size: 1.1rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(255, 152, 0, 0.3); transition: transform 0.2s; }
+        .btn-cta:hover { transform: translateY(-2px); background: #f57c00; }
+        
+        .public-card { background: var(--white); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+
+        /* --- INTRANET (LOGIN & DASHBOARD) --- */
+        .auth-card { background: var(--white); padding: 2rem; border-radius: var(--radius); box-shadow: var(--shadow); max-width: 400px; margin: 2rem auto; }
+        .form-group { margin-bottom: 1rem; text-align: left; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--text); }
+        .form-group input { width: 100%; padding: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem; }
+        .btn-block { width: 100%; padding: 0.8rem; background: var(--primary); color: white; border: none; border-radius: var(--radius); font-weight: bold; cursor: pointer; margin-top: 1rem; }
+        .btn-block.secondary { background: transparent; color: var(--primary); border: 1px solid var(--primary); margin-top: 0.5rem; }
+
+        /* DASHBOARD */
+        .order-card { background: var(--white); padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid var(--primary); cursor: pointer; transition: transform 0.2s; }
+        .order-card:hover { transform: translateX(5px); }
+        
+        /* CHAT & DETALLE */
+        .chat-box { height: 300px; overflow-y: auto; background: #f9f9f9; padding: 1rem; border-radius: var(--radius); margin: 1rem 0; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.5rem; }
+        .msg { padding: 0.5rem 1rem; border-radius: 12px; max-width: 80%; font-size: 0.9rem; }
+        .msg.mine { align-self: flex-end; background: var(--primary); color: white; }
+        .msg.others { align-self: flex-start; background: #e0e0e0; color: #333; }
+        .msg-meta { font-size: 0.7rem; opacity: 0.8; margin-bottom: 2px; display: block; }
+
+        /* UTILIDADES */
+        .hidden { display: none !important; }
+        .error-msg { color: #d32f2f; font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 14px; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <a href="#" class="logo" onclick="navigateTo('landing')">🏠 Cooperativa Admin</a>
+        <nav class="nav-buttons" id="nav-public">
+            <button onclick="navigateTo('auth')">Soy Vecino (Ingresar)</button>
+        </nav>
+        <nav class="nav-buttons hidden" id="nav-private">
+            <button onclick="navigateTo('dashboard')">Mis Pedidos</button>
+            <button class="btn-highlight" onclick="handleLogout()">Salir</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- 🌐 PANTALLA 1: EXTRANET (PÚBLICA) -->
+        <section id="screen-landing" class="screen active">
+            <div class="hero">
+                <h1>Coordinación Administrativa</h1>
+                <p>Plataforma de compras colectivas para el hogar.<br>Visión transparente para la comunidad.</p>
+                <button class="btn-cta" onclick="navigateTo('auth')">Soy Vecino / Quiero Unirme</button>
+            </div>
+            <h3 style="margin-bottom: 1rem;">📦 Pedidos Activos (Público)</h3>
+            <div id="public-orders-list"></div>
+        </section>
+
+        <!-- 🔐 PANTALLA 2: LOGIN / REGISTRO (DNI Y CONTRASEÑA) -->
+        <section id="screen-auth" class="screen">
+            <div class="auth-card">
+                <h2 style="text-align: center; margin-bottom: 1.5rem; color: var(--primary);">Acceso Vecinos</h2>
+                
+                <div class="form-group">
+                    <label>DNI (Documento de Identidad)</label>
+                    <input type="number" id="auth-dni" placeholder="Ej: 12345678">
+                </div>
+                
+                <!-- Campos extra solo para Registro -->
+                <div id="register-fields" class="hidden">
+                    <div class="form-group">
+                        <label>Nombre Completo</label>
+                        <input type="text" id="auth-name" placeholder="Tu nombre">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono (Contacto)</label>
+                        <input type="tel" id="auth-phone" placeholder="Ej: 999 999 999">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="auth-password" placeholder="******">
+                </div>
+
+                <button id="btn-action" class="btn-block" onclick="handleLogin()">Iniciar Sesión</button>
+                <button class="btn-block secondary" onclick="toggleRegisterMode()">¿No tienes cuenta? Regístrate aquí</button>
+                
+                <p id="auth-error" class="error-msg"></p>
+                <p style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: #777;">
+                    <a href="#" onclick="navigateTo('landing')" style="color: var(--primary);">← Volver a la página pública</a>
+                </p>
+            </div>
+        </section>
+
+        <!-- 📋 PANTALLA 3: DASHBOARD (INTRANET) -->
+        <section id="screen-dashboard" class="screen">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Mis Pedidos Colectivos</h2>
+                <button class="btn-highlight" style="padding: 0.5rem 1rem; border:none; border-radius: 4px; cursor: pointer;" onclick="showCreateOrder()">+ Nuevo Pedido</button>
+            </div>
+
+            <div id="create-order-form" class="auth-card hidden" style="margin: 0 0 2rem 0; max-width: 100%;">
+                <h4>Crear Nuevo Pedido</h4>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <input type="text" id="new-prod" placeholder="Producto (Ej: Aceite)" style="flex: 2; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="new-price" placeholder="Precio" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                    <button onclick="submitOrder()" style="padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Guardar</button>
+                    <button onclick="document.getElementById('create-order-form').classList.add('hidden')" style="padding: 0.5rem 1rem; background: #ccc; border: none; border-radius: 4px; cursor: pointer;">X</button>
+                </div>
+            </div>
+
+            <div id="private-orders-list"></div>
+        </section>
+
+        <!-- 📝 PANTALLA 4: DETALLE -->
+        <section id="screen-detail" class="screen">
+            <button onclick="navigateTo('dashboard')" style="background:none; border:none; color: var(--primary); cursor: pointer; margin-bottom: 1rem;">← Volver</button>
+            
+            <div style="background: white; padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow);">
+                <h2 id="detail-title" style="margin-bottom: 0.5rem;">Producto</h2>
+                <p id="detail-price" style="font-size: 1.5rem; color: var(--accent); font-weight: bold;">$0.00</p>
+                <p id="detail-creator" style="color: #777; font-size: 0.9rem;">Organizador: ...</p>
+
+                <hr style="margin: 1.5rem 0; border: 0; border-top: 1px solid #eee;">
+
+                <h4>Participantes</h4>
+                <ul id="detail-participants" style="list-style: none; padding: 0; margin-bottom: 1.5rem;"></ul>
+
+                <div id="join-area">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Unirme al pedido:</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="join-qty" placeholder="Cantidad" style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                        <button onclick="joinOrder()" style="background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Unirme</button>
+                    </div>
+                    <p id="join-msg" style="color: green; font-size: 0.85rem; margin-top: 0.5rem; display: none;">✅ Ya estás participando.</p>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 2rem;">Chat de Coordinación</h4>
+            <div class="chat-box" id="chat-box"></div>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="chat-input" placeholder="Escribe un mensaje..." style="flex: 1; padding: 0.8rem; border: 1px solid #ccc; border-radius: var(--radius);" onkeypress="if(event.key==='Enter') sendMsg()">
+                <button onclick="sendMsg()" style="background: var(--primary); color: white; border: none; padding: 0 1.5rem; border-radius: var(--radius); cursor: pointer;">Enviar</button>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast">Notificación</div>
+
+    <script type="module">
+        // IMPORTACIONES
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, getDoc, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // CONFIGURACIÓN
+        const firebaseConfig = {
+          apiKey: "AIzaSyDa_FQCvBylukppdNGk7__xXJ0mzSlQWMA",
+          authDomain: "coordinacion-740d3.firebaseapp.com",
+          projectId: "coordinacion-740d3",
+          storageBucket: "coordinacion-740d3.firebasestorage.app",
+          messagingSenderId: "133680908023",
+          appId: "1:133680908023:web:ba0fa8fcecd019814775f2",
+          measurementId: "G-G2CN7B2M73"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // ESTADO
+        let currentUser = null;
+        let currentUserName = "";
+        let currentOrderId = null;
+        let listeners = [];
+        let isRegistering = false; // Estado del formulario
+
+        // UTILS
+        window.showToast = (msg) => {
+            const x = document.getElementById("toast");
+            x.innerText = msg;
+            x.className = "show";
+            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+        };
+
+        window.navigateTo = (screenId) => {
+            listeners.forEach(unsub => unsub());
+            listeners = [];
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(`screen-${screenId}`).classList.add('active');
+
+            const navPublic = document.getElementById('nav-public');
+            const navPrivate = document.getElementById('nav-private');
+
+            if (screenId === 'landing' || screenId === 'auth') {
+                navPublic.classList.remove('hidden');
+                navPrivate.classList.add('hidden');
+            } else {
+                navPublic.classList.add('hidden');
+                navPrivate.classList.remove('hidden');
+            }
+
+            if (screenId === 'landing') loadPublicOrders();
+            if (screenId === 'dashboard') loadPrivateDashboard();
+        };
+
+        // 🔄 TOGGLE ENTRE REGISTRO Y LOGIN
+        window.toggleRegisterMode = () => {
+            isRegistering = !isRegistering;
+            const extraFields = document.getElementById('register-fields');
+            const btn = document.getElementById('btn-action');
+            const link = document.querySelector('.btn-block.secondary');
+
+            if (isRegistering) {
+                extraFields.classList.remove('hidden');
+                btn.textContent = "Registrarse";
+                btn.onclick = handleRegister;
+                link.textContent = "¿Ya tienes cuenta? Inicia Sesión";
+            } else {
+                extraFields.classList.add('hidden');
+                btn.textContent = "Iniciar Sesión";
+                btn.onclick = handleLogin;
+                link.textContent = "¿No tienes cuenta? Regístrate aquí";
+            }
+        };
+
+        // 🔐 REGISTRO CON DNI
+        window.handleRegister = async () => {
+            const dni = document.getElementById('auth-dni').value.trim();
+            const name = document.getElementById('auth-name').value.trim();
+            const phone = document.getElementById('auth-phone').value.trim();
+            const pass = document.getElementById('auth-password').value;
+            const err = document.getElementById('auth-error');
+
+            if(!dni || !name || !phone || !pass) { err.textContent = "Completa todos los campos"; return; }
+
+            try {
+                // 1. Verificar si el DNI ya existe en nuestra base de datos
+                const q = query(collection(db, "users"), where("dni", "==", dni));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    err.textContent = "Este DNI ya está registrado.";
+                    return;
+                }
+
+                // 2. Crear el correo "falso" basado en DNI para Firebase Auth
+                const fakeEmail = `${dni}@cooperativa.virtual`;
+
+                // 3. Crear usuario en Firebase Auth
+                const cred = await createUserWithEmailAndPassword(auth, fakeEmail, pass);
+                
+                // 4. Guardar datos reales (DNI, Nombre, Teléfono) en Firestore
+                await setDoc(doc(db, "users", cred.user.uid), {
+                    name: name,
+                    dni: dni,
+                    phone: phone,
+                    email: fakeEmail // Guardamos el email mapeado por si acaso
+                });
+
+                showToast("¡Registro exitoso! Bienvenido.");
+            } catch (e) { 
+                console.error(e);
+                err.textContent = "Error: " + e.message; 
+            }
+        };
+
+        // 🔐 LOGIN CON DNI
+        window.handleLogin = async () => {
+            const dni = document.getElementById('auth-dni').value.trim();
+            const pass = document.getElementById('auth-password').value;
+            const err = document.getElementById('auth-error');
+
+            if(!dni || !pass) { err.textContent = "Ingresa DNI y Contraseña"; return; }
+
+            try {
+                // 1. Buscar el usuario por DNI en Firestore para obtener el email mapeado
+                const q = query(collection(db, "users"), where("dni", "==", dni));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    err.textContent = "DNI no encontrado. ¿Ya te registraste?";
+                    return;
+                }
+
+                // 2. Obtener el email "falso" que guardamos al registrar
+                const userDoc = querySnapshot.docs[0].data();
+                const emailToUse = userDoc.email;
+
+                // 3. Iniciar sesión con ese email y la contraseña
+                await signInWithEmailAndPassword(auth, emailToUse, pass);
+                showToast("Sesión iniciada correctamente");
+
+            } catch (e) { 
+                console.error(e);
+                err.textContent = "Error de acceso: Verifica tu contraseña."; 
+            }
+        };
+
+        window.handleLogout = () => signOut(auth).then(() => showToast("Sesión cerrada"));
+
+        // LISTENER DE AUTH
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                const uDoc = await getDoc(doc(db, "users", user.uid));
+                if (uDoc.exists()) {
+                    currentUserName = uDoc.data().name;
+                }
+                navigateTo('dashboard');
+            } else {
+                currentUser = null;
+                navigateTo('landing');
+            }
+        });
+
+        // ... (El resto de funciones de Dashboard, Pedidos y Chat se mantienen igual que en la versión anterior) ...
+        
+        function loadPublicOrders() {
+            const container = document.getElementById('public-orders-list');
+            const q = query(collection(db, "pedidos"), where("estado", "==", "abierto"), orderBy("timestamp", "desc"));
+            const unsub = onSnapshot(q, (snap) => {
+                container.innerHTML = "";
+                if(snap.empty) container.innerHTML = "<p class='text-center' style='color:#999;'>No hay pedidos activos.</p>";
+                snap.forEach(d => {
+                    const data = d.data();
+                    container.innerHTML += `
+                        <div class="public-card">
+                            <div>
+                                <h3>${data.producto}</h3>
+                                <small>Org: ${data.creador_nombre}</small>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-weight:bold; color:var(--primary);">$${data.precio_estimado}</div>
+                                <small>Abierto</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            listeners.push(unsub);
+        }
+
+        function loadPrivateDashboard() {
+            const container = document.getElementById('private-orders-list');
+            const q = query(collection(db, "pedidos"), orderBy("timestamp", "desc"));
+            const unsub = onSnapshot(q, (snap) => {
+                container.innerHTML = "";
+                if(snap.empty) container.innerHTML = "<p class='text-center'>Crea tu primer pedido.</p>";
+                snap.forEach(d => {
+                    const data = d.data();
+                    container.innerHTML += `
+                        <div class="order-card" onclick="openDetail('${d.id}')">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="font-weight:bold;">${data.producto}</span>
+                                <span style="color:var(--accent); font-weight:bold;">$${data.precio_estimado}</span>
+                            </div>
+                            <div style="font-size:0.85rem; color:#666; margin-top:0.3rem;">
+                                Org: ${data.creador_nombre} | Estado: <b>${data.estado}</b>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            listeners.push(unsub);
+        }
+
+        window.showCreateOrder = () => document.getElementById('create-order-form').classList.remove('hidden');
+
+        window.submitOrder = async () => {
+            const prod = document.getElementById('new-prod').value;
+            const price = document.getElementById('new-price').value;
+            if(!prod || !price) return showToast("Faltan datos");
+            await addDoc(collection(db, "pedidos"), {
+                producto: prod, precio_estimado: parseFloat(price), 
+                creador_id: currentUser.uid, creador_nombre: currentUserName, 
+                estado: "abierto", timestamp: new Date()
+            });
+            document.getElementById('create-order-form').classList.add('hidden');
+            showToast("Pedido creado");
+        };
+
+        window.openDetail = (id) => {
+            currentOrderId = id;
+            getDoc(doc(db, "pedidos", id)).then(snap => {
+                const d = snap.data();
+                document.getElementById('detail-title').innerText = d.producto;
+                document.getElementById('detail-price').innerText = "$" + d.precio_estimado;
+                document.getElementById('detail-creator').innerText = "Org: " + d.creador_nombre;
+            });
+            navigateTo('detail');
+            loadDetailData(id);
+        };
+
+        function loadDetailData(id) {
+            const qPart = query(collection(db, "participantes"), where("pedido_id", "==", id));
+            const unsub1 = onSnapshot(qPart, (snap) => {
+                const list = document.getElementById('detail-participants');
+                const joinArea = document.getElementById('join-area');
+                const joinMsg = document.getElementById('join-msg');
+                list.innerHTML = "";
+                let userJoined = false;
+                snap.forEach(s => {
+                    const p = s.data();
+                    if(p.user_id === currentUser.uid) userJoined = true;
+                    list.innerHTML += `<li>${p.user_name} - <b>${p.cantidad} un.</b></li>`;
+                });
+                if(userJoined) { joinArea.style.display = 'none'; joinMsg.style.display = 'block'; }
+                else { joinArea.style.display = 'block'; joinMsg.style.display = 'none'; }
+            });
+
+            const qChat = query(collection(db, "mensajes"), where("pedido_id", "==", id), orderBy("timestamp", "asc"));
+            const unsub2 = onSnapshot(qChat, (snap) => {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = "";
+                snap.forEach(s => {
+                    const m = s.data();
+                    const isMine = m.user_id === currentUser.uid;
+                    box.innerHTML += `
+                        <div class="msg ${isMine ? 'mine' : 'others'}">
+                            <span class="msg-meta">${m.user_name}</span>
+                            ${m.texto}
+                        </div>
+                    `;
+                });
+                box.scrollTop = box.scrollHeight;
+            });
+            listeners.push(unsub1, unsub2);
+        }
+
+        window.joinOrder = async () => {
+            const qty = document.getElementById('join-qty').value;
+            if(!qty) return showToast("Ingresa cantidad");
+            await addDoc(collection(db, "participantes"), {
+                pedido_id: currentOrderId, user_id: currentUser.uid, user_name: currentUserName, cantidad: parseInt(qty), timestamp: new Date()
+            });
+            showToast("Te has unido");
+            await addDoc(collection(db, "mensajes"), {
+                pedido_id: currentOrderId, user_id: currentUser.uid, user_name: currentUserName, texto: "Se unió al grupo.", timestamp: new Date()
+            });
+        };
+
+        window.sendMsg = async () => {
+            const input = document.getElementById('chat-input');
+            const txt = input.value.trim();
+            if(!txt) return;
+            await addDoc(collection(db, "mensajes"), {
+                pedido_id: currentOrderId, user_id: currentUser.uid, user_name: currentUserName, texto: txt, timestamp: new Date()
+            });
+            input.value = "";
+        };
+
+    </script>
+</body>
+</html>
